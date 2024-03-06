@@ -39,7 +39,7 @@ def crawlMain(keyword, maxpage):
     # 进行搜索
     fetchurl = "http://search.people.cn"
     driver.get(fetchurl)
-    wait = WebDriverWait(driver, 5)
+    wait = WebDriverWait(driver, 10)  # 至多等待10s
     search_box = wait.until(EC.visibility_of_element_located((By.TAG_NAME, 'input')))
     search_box.send_keys(keyword)
     search_box.send_keys(Keys.ENTER)
@@ -50,7 +50,9 @@ def crawlMain(keyword, maxpage):
     # 循环爬取每一页
     while curpage <= maxpage:
         
-        time.sleep(3)
+        # 等待页面加载完成（至多等待10s）
+        wait = WebDriverWait(driver, 10)
+        wait.until(EC.presence_of_element_located((By.CLASS_NAME, "content")))
         
         # 读取页面源代码
         text = driver.page_source
@@ -80,7 +82,7 @@ def crawlMain(keyword, maxpage):
             abstractlst.append(abstracta)
             
         # 当前页爬取结束
-        print("当前第{}页爬取结束！".format(curpage))
+        print("第{}页爬取成功！".format(curpage))
         
         # 寻找下一页按钮
         next_page_button = driver.find_element(By.CLASS_NAME, 'page-next')
@@ -116,7 +118,13 @@ df['Abstract'] = dt[2]
 
 df_1 = df.drop_duplicates(subset='Title')
 
-df_1.to_csv("/Users/ollie/Desktop/yourname.csv")
+# 获取当前时间，用于生成保存文件名
+curtime = datetime.datetime.now()
+curtime = curtime.strftime("%Y%m%d%H%M%S")
+
+savename = "RMW_{}_{}".format(keyword, curtime)
+df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
+
 
 
 
