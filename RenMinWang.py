@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[2]:
-
-
+# 胡乱导入一些库
 import requests
 import bs4
 import os
@@ -11,25 +9,15 @@ import datetime
 import time
 import argparse
 
-
-# In[39]:
-
-
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
 
-
-# In[48]:
-
-
 import pandas as pd
 import numpy as np
 
-
-# In[44]:
 
 
 def crawlMain(keyword, maxpage):
@@ -106,13 +94,6 @@ def crawlMain(keyword, maxpage):
     return [titlelst, urllst, abstractlst]
         
         
-            
-            
-        
-    
-
-
-# In[45]:
 
 # 接受父进程传入的参数
 # 创建参数解析器
@@ -127,40 +108,18 @@ maxpage = args.maxpage
 
 dt = crawlMain(keyword, maxpage)
 
-
-# In[55]:
-
-
 df = pd.DataFrame()
-
-
-# In[57]:
-
 
 df['Title'] = dt[0]
 df['url link'] = dt[1]
 df['Abstract'] = dt[2]
 
-
-# In[59]:
-
-
 df_1 = df.drop_duplicates(subset='Title')
 
-
-# In[ ]:
-
+df_1.to_csv("/Users/ollie/Desktop/yourname.csv")
 
 
 
-
-# In[65]:
-
-
-df_1.to_csv("/Users/ollie/Desktop/人民网-社会治理.csv")
-
-
-# In[ ]:
 
 
 
