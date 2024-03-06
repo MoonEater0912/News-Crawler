@@ -21,8 +21,7 @@ def run_crawler():
     maxpage = entry_iterations.get()
 
     try:
-        result = subprocess.run(['你的python解释器路径', 
-                                'RenMinWang.py', 
+        result = subprocess.run(['RenMinWang.py', 
                                 "--keyword",
                                 keyword,
                                 "--maxpage",
