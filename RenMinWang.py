@@ -18,7 +18,8 @@ from selenium.webdriver.common.keys import Keys
 import pandas as pd
 import numpy as np
 
-
+import tkinter as tk
+from tkinter.filedialog import askdirectory
 
 def crawlMain(keyword, maxpage):
     """
@@ -122,13 +123,21 @@ df_1 = df.drop_duplicates(subset='Title')
 curtime = datetime.datetime.now()
 curtime = curtime.strftime("%Y%m%d%H%M%S")
 
-savename = "RMW_{}_{}".format(keyword, curtime)
-df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
+# 生成文件名
+savename = "RMW_{}_{}.csv".format(keyword, curtime)
+# df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
 
+# 唤出保存窗口
+root = tk.Tk()
+root.withdraw()
+folder_path = askdirectory()
 
-
-
-
-
+# 生成保存路径
+savepath = folder_path + "/" + savename
+try:
+    df_1.to_csv(savepath)
+    print(savename, ".csv 文件被储存于", folder_path)
+except:
+    print("保存文件时出错！")
 
 
