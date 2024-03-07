@@ -4,7 +4,9 @@ import subprocess
 from tkinter import ttk
 
 # 设置目标网站列表
-weblst = ['人民网']
+webdic = {'人民网':'RenMinWang',
+          '民政局':'MinZhengJu'}
+weblst = list(webdic.keys())
 
 # 定义“开始爬虫”按钮函数
 def run_crawler():
@@ -20,8 +22,11 @@ def run_crawler():
     keyword = entry_keyword.get()
     maxpage = entry_iterations.get()
 
+    # 根据用户指定目标网站选择子进程文件
+    file_path = '{}.py'.format(webdic[target])
+    
     try:
-        result = subprocess.run(['RenMinWang.py', 
+        result = subprocess.run([file_path, 
                                 "--keyword",
                                 keyword,
                                 "--maxpage",
