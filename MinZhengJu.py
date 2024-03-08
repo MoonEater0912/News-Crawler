@@ -88,9 +88,13 @@ def crawlMain(keyword, maxpage):
         print("第{}页爬取成功！".format(curpage))
         
         # 寻找下一页按钮
-        next_page_button = driver.find_element(By.XPATH, '(//*/div[@id="page"]/a)[text()="下一页"]')
-        curpage = curpage + 1
-        next_page_button.click()
+        try:
+            next_page_button = driver.find_element(By.XPATH, '(//*/div[@id="page"]/a)[text()="下一页"]')
+            curpage = curpage + 1
+            next_page_button.click()
+        except:
+            print("爬取过程在第{}页中断，可能因为设置爬取页数超过搜索结果页数".format(curpage))
+            break
     
     # 循环结束，退出浏览器
     driver.quit()
