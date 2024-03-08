@@ -59,7 +59,7 @@ def crawlMain(keyword, maxpage):
         # 点击“下一页”后页面元素没有这么快刷新，会导致爬到的数据仍然是第1页的，因此加入了强制等待策略
         time.sleep(1) 
         wait = WebDriverWait(driver, 10)  # 至多等待10s
-        wait.until(EC.visibility_of_element_located((By.XPATH, '//*/div[@id="9"]/div[2]/div/p[1]')))     
+        wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'summaryFont')))    
 
         # 读取页面源代码
         text = driver.page_source
@@ -83,19 +83,27 @@ def crawlMain(keyword, maxpage):
             urllst.append(urla)
             
             # 寻找摘要
-            abstract = content.find('p', class_='summaryFont')
-            abstracta = abstract.text
-            abstractlst.append(abstracta)
+            # 如果搜到一些首页专题推荐，会不存在摘要，所以设置了错误捕获
+            try: 
+                abstract = content.find('p', class_='summaryFont')
+                abstracta = abstract.text
+                abstractlst.append(abstracta)
+            except:
+                abstractlst.append("【此条没有摘要！】")
             
         # 当前页爬取结束
         print("第{}页爬取成功！".format(curpage))
         
         # 寻找下一页按钮
-        wait = WebDriverWait(driver, 10)  # 至多等待10s
-        wait.until(EC.visibility_of_element_located((By.XPATH, '(//*/ul[@id="pageInfo"]/li)[11]/a')))
-        next_page_button = driver.find_element(By.XPATH, '(//*/ul[@id="pageInfo"]/li)[11]/a')
-        curpage = curpage + 1
-        next_page_button.click()
+        try:
+            wait = WebDriverWait(driver, 10)  # 至多等待10s
+            wait.until(EC.visibility_of_element_located((By.XPATH, '(//*/ul[@id="pageInfo"]/li)[11]/a')))
+            next_page_button = driver.find_element(By.XPATH, '(//*/ul[@id="pageInfo"]/li)[11]/a')
+            curpage = curpage + 1
+            next_page_button.click()
+        except:
+            print("爬取过程在第{}页中断，可能因为设置爬取页数超过搜索结果页数".format(curpage))
+            break
     
     # 循环结束，退出浏览器
     driver.quit()
