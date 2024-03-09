@@ -6,7 +6,8 @@ from tkinter import ttk
 # 设置目标网站列表
 webdic = {'人民网':'RenMinWang',
           '民政局':'MinZhengJu',
-          '长安网':'ChangAnWang'}
+          '长安网':'ChangAnWang',
+          '卫健委':'WeiJianWei'}
 weblst = list(webdic.keys())
 
 # 定义“开始爬虫”按钮函数
