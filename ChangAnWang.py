@@ -97,8 +97,7 @@ def crawlMain(keyword, maxpage):
         # 寻找下一页按钮
         try:
             wait = WebDriverWait(driver, 10)  # 至多等待10s
-            wait.until(EC.visibility_of_element_located((By.XPATH, '(//*/ul[@id="pageInfo"]/li)[11]/a')))
-            next_page_button = driver.find_element(By.XPATH, '(//*/ul[@id="pageInfo"]/li)[11]/a')
+            next_page_button = wait.until(EC.visibility_of_element_located((By.XPATH, '(//*/ul[@id="pageInfo"]/li)[@jp-role="next"]/a')))
             curpage = curpage + 1
             next_page_button.click()
         except:
