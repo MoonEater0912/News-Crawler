@@ -170,7 +170,7 @@ curtime = datetime.datetime.now()
 curtime = curtime.strftime("%Y%m%d%H%M%S")
 
 # 生成文件名
-savename = "WJW_{}_{}.csv".format(keyword, curtime)
+savename = "SHKXW_{}_{}.csv".format(keyword, curtime)
 # df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
 
 # 唤出保存窗口
