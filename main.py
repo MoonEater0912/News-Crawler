@@ -3,11 +3,12 @@ from tkinter import messagebox
 import subprocess
 from tkinter import ttk
 
-# 设置目标网站列表
+# 设置目标网站列表，key为显示在用户端下拉列表的选项，value为对应的执行脚本文件名
 webdic = {'人民网':'RenMinWang',
           '民政局':'MinZhengJu',
           '长安网':'ChangAnWang',
-          '卫健委':'WeiJianWei'}
+          '卫健委':'WeiJianWei',
+          '中国社会科学网':'SheHuiKeXueWang'}
 weblst = list(webdic.keys())
 
 # 定义“开始爬虫”按钮函数
