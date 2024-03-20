@@ -8,7 +8,8 @@ webdic = {'人民网':'RenMinWang',
           '民政局':'MinZhengJu',
           '长安网':'ChangAnWang',
           '卫健委':'WeiJianWei',
-          '中国社会科学网':'SheHuiKeXueWang'}
+          '中国社会科学网':'SheHuiKeXueWang',
+          '哲社工作办公室':'ZheSheBan'}
 weblst = list(webdic.keys())
 
 # 定义“开始爬虫”按钮函数
