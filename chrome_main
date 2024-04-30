@@ -1,0 +1,904 @@
+import sys
+import tkinter as tk
+from tkinter import messagebox
+import subprocess
+from tkinter import ttk
+import requests
+import bs4
+import os
+import datetime
+import time
+import argparse
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.common.keys import Keys
+
+import pandas as pd
+import numpy as np
+
+from tkinter.filedialog import askdirectory
+
+
+
+
+# 设置目标网站列表
+webdic = {'人民网':'RenMinWang',
+          '民政局':'MinZhengJu',
+          '长安网':'ChangAnWang',
+          '卫健委':'WeiJianWei',
+          '中国社会科学网':'SheHuiKeXueWang',
+          '哲社工作办公室':'ZheSheBan'}
+weblst = list(webdic.keys())
+
+
+# ## 接下来是一堆爬虫函数
+
+# ### 人民网
+
+
+
+def RenMinWang(keyword, maxpage):
+    """
+        爬取人民网的主函数
+        在用户输入关键词如”社会治理“后
+        返回三个列表，分别按顺序包含标题、链接和概览
+        存储在一个csv文件当中
+    """
+    
+    def crawlMain(keyword, maxpage):
+
+        # 初始化驱动
+        driver = webdriver.Chrome()
+
+        # 初始化存储列表
+        titlelst = []
+        urllst = []
+        abstractlst = []
+
+        # 进行搜索
+        fetchurl = "http://search.people.cn"
+        driver.get(fetchurl)
+        wait = WebDriverWait(driver, 10)  # 至多等待10s
+        search_box = wait.until(EC.visibility_of_element_located((By.TAG_NAME, 'input')))
+        search_box.send_keys(keyword)
+        search_box.send_keys(Keys.ENTER)
+
+        # 初始化当前页码
+        curpage = 1
+
+        # 循环爬取每一页
+        while curpage <= maxpage:
+
+            # 等待页面加载完成（至多等待10s）
+            wait = WebDriverWait(driver, 10)
+            wait.until(EC.presence_of_element_located((By.CLASS_NAME, "content")))
+
+            # 读取页面源代码
+            text = driver.page_source
+
+            # 解析页面源代码
+            soup = bs4.BeautifulSoup(text, 'html.parser') 
+
+            # 寻找到所有新闻条目
+            contents = soup.find_all('div', class_='content')
+
+            # 遍历每个条目，读取其中的标题、url和概览
+            for content in contents:
+
+                # 寻找标题
+                ttl = content.find('div', class_='ttl')
+                ttla = ttl.find('a')
+                title = ttla.text
+                titlelst.append(title)
+
+                # 寻找url
+                urla = ttla.get('href')
+                urllst.append(urla)
+
+                # 寻找摘要
+                abstract = content.find('div', class_='abs')
+                abstracta = abstract.text
+                abstractlst.append(abstracta)
+
+            # 当前页爬取结束
+            print("第{}页爬取成功！".format(curpage))
+
+            # 寻找下一页按钮
+            try:
+                next_page_button = driver.find_element(By.CLASS_NAME, 'page-next')
+                curpage = curpage + 1
+                next_page_button.click()
+            except:
+                print("爬取过程在第{}页中断，可能因为设置爬取页数超过搜索结果页数".format(curpage))
+                break
+
+        # 循环结束，退出浏览器
+        driver.quit()
+
+        # 返回三个列表的列表
+        return [titlelst, urllst, abstractlst]
+
+
+    dt = crawlMain(keyword, int(maxpage))
+
+    df = pd.DataFrame()
+
+    df['Title'] = dt[0]
+    df['url link'] = dt[1]
+    df['Abstract'] = dt[2]
+
+    df_1 = df.drop_duplicates(subset='Title')
+
+    # 获取当前时间，用于生成保存文件名
+    curtime = datetime.datetime.now()
+    curtime = curtime.strftime("%Y%m%d%H%M%S")
+
+    # 生成文件名
+    savename = "RMW_{}_{}.csv".format(keyword, curtime)
+    # df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
+
+    # 唤出保存窗口
+    root = tk.Tk()
+    root.withdraw()
+    folder_path = askdirectory()
+
+    # 生成保存路径
+    savepath = folder_path + "/" + savename
+    try:
+        df_1.to_csv(savepath, encoding="utf-8-sig")
+        print(savename, ".csv 文件被储存于", folder_path)
+    except:
+        print("保存文件时出错！")
+
+
+# ### 长安网
+
+
+
+def ChangAnWang(keyword, maxpage):
+    
+    """
+        爬取中国长安网的主函数
+        在用户输入关键词如”社会治理“后
+        返回三个列表，分别按顺序包含标题、链接和概览
+        存储在一个csv文件当中
+    """
+    
+    def crawlMain(keyword, maxpage):
+        
+        # 初始化驱动
+        driver = webdriver.Chrome()
+
+        # 初始化存储列表
+        titlelst = []
+        urllst = []
+        abstractlst = []
+
+        # 进行搜索
+        fetchurl = "http://zs.kaipuyun.cn/index/N000011023" # 11023是开普云上长安网的官方代码
+        driver.get(fetchurl)
+        wait = WebDriverWait(driver, 10)  # 至多等待10s
+        search_box = wait.until(EC.visibility_of_element_located((By.ID, 'allSearchWord')))
+        search_box = driver.find_element(By.ID, 'allSearchWord')
+        search_box.send_keys(keyword)
+        search_box.send_keys(Keys.ENTER)
+
+        # 初始化当前页码
+        curpage = 1
+
+        # 循环爬取每一页
+        while curpage <= maxpage:
+
+            # 设置等待最后一个新闻的摘要出现
+            # 点击“下一页”后页面元素没有这么快刷新，会导致爬到的数据仍然是第1页的，因此加入了强制等待策略
+            time.sleep(2) 
+            wait = WebDriverWait(driver, 10)  # 至多等待10s
+            wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'summaryFont')))    
+
+            # 读取页面源代码
+            text = driver.page_source
+
+            # 解析页面源代码
+            soup = bs4.BeautifulSoup(text, 'html.parser') 
+
+            # 寻找到所有新闻条目
+            contents = soup.find_all('div', class_='wordGuide Residence-permit')
+
+            # 遍历每个条目，读取其中的标题、url和概览
+            for content in contents:
+
+                # 寻找标题
+                ttla = content.find('a', class_='titleFont')
+                title = ttla.text
+                titlelst.append(title)
+
+                # 寻找url
+                urla = ttla.get('href')
+                urllst.append(urla)
+
+                # 寻找摘要
+                # 如果搜到一些首页专题推荐，会不存在摘要，所以设置了错误捕获
+                try: 
+                    abstract = content.find('p', class_='summaryFont')
+                    abstracta = abstract.text
+                    abstractlst.append(abstracta)
+                except:
+                    abstractlst.append("【此条没有摘要！】")
+
+            # 当前页爬取结束
+            print("第{}页爬取成功！".format(curpage))
+
+            # 寻找下一页按钮
+            try:
+                wait = WebDriverWait(driver, 10)  # 至多等待10s
+                next_page_button = wait.until(EC.visibility_of_element_located((By.XPATH, '(//*/ul[@id="pageInfo"]/li)[@jp-role="next"]/a')))
+                curpage = curpage + 1
+                next_page_button.click()
+            except:
+                print("爬取过程在第{}页中断，可能因为设置爬取页数超过搜索结果页数".format(curpage))
+                break
+
+        # 循环结束，退出浏览器
+        driver.quit()
+
+        # 返回三个列表的列表
+        return [titlelst, urllst, abstractlst]
+
+
+    dt = crawlMain(keyword, int(maxpage))
+
+    df = pd.DataFrame()
+
+    df['Title'] = dt[0]
+    df['url link'] = dt[1]
+    df['Abstract'] = dt[2]
+
+    df_1 = df.drop_duplicates(subset='Title')
+
+    # 获取当前时间，用于生成保存文件名
+    curtime = datetime.datetime.now()
+    curtime = curtime.strftime("%Y%m%d%H%M%S")
+
+    # 生成文件名
+    savename = "CAW_{}_{}.csv".format(keyword, curtime)
+    # df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
+
+    # 唤出保存窗口
+    root = tk.Tk()
+    root.withdraw()
+    folder_path = askdirectory()
+
+    # 生成保存路径
+    savepath = folder_path + "/" + savename
+    try:
+        df_1.to_csv(savepath, encoding="utf-8-sig")
+        print(savename, ".csv 文件被储存于", folder_path)
+    except:
+        print("保存文件时出错！")
+
+
+
+
+
+
+# ### 民政局
+
+
+
+def MinZhengJu(keyword, maxpage):
+    
+    """
+        爬取民政局的主函数
+        在用户输入关键词如”社会治理“后
+        返回三个列表，分别按顺序包含标题、链接和概览
+        存储在一个csv文件当中
+    """
+    
+    
+    def crawlMain(keyword, maxpage):
+
+        # 初始化驱动
+        driver = webdriver.Chrome()
+
+        # 初始化存储列表
+        titlelst = []
+        urllst = []
+        abstractlst = []
+
+        # 进行搜索
+        fetchurl = "https://so.mca.gov.cn/searchweb/"
+        driver.get(fetchurl)
+        wait = WebDriverWait(driver, 10)  # 至多等待10s
+        search_box = wait.until(EC.visibility_of_element_located((By.ID, 'fullText')))
+        search_box.send_keys(keyword)
+        search_box.send_keys(Keys.ENTER)
+
+        # 初始化当前页码
+        curpage = 1
+
+        # 循环爬取每一页
+        while curpage <= maxpage:
+
+            # 等待页面加载完成（至多等待10s）
+            # 这里选择等待“下一页”按钮出现后再执行后续操作，因为它似乎是最慢出现的
+            # 选择了xpath检索，先定位到底部页码区，然后再用link_text选择，否则会出现找不到的情况
+            # wait = WebDriverWait(driver, 10)
+            # wait.until(EC.presence_of_element_located((By.XPATH, '(//*/div[@id="page"]/a)[text()="下一页"]')))
+            time.sleep(5)
+
+            # 读取页面源代码
+            text = driver.page_source
+
+            # 解析页面源代码
+            soup = bs4.BeautifulSoup(text, 'html.parser') 
+
+            # 寻找到所有新闻条目
+            contents = soup.find_all('div', class_='list list1')
+
+            # 遍历每个条目，读取其中的标题、url和概览
+            for content in contents:
+
+                # 寻找标题
+                ttl = content.find('div', class_='list-title')
+                ttla = ttl.find('a')
+                title = ttla.text
+                titlelst.append(title)
+
+                # 寻找url
+                urla = ttla.get('href')
+                urllst.append(urla)
+
+                # 寻找摘要
+                abstract = content.find('p', class_='list-abstract')
+                abstracta = abstract.text
+                abstractlst.append(abstracta)
+
+            # 当前页爬取结束
+            print("第{}页爬取成功！".format(curpage))
+
+            # 寻找下一页按钮
+            try:
+                next_page_button = driver.find_element(By.XPATH, '(//*/div[@id="page"]/a)[text()="下一页"]')
+                curpage = curpage + 1
+                next_page_button.click()
+            except:
+                print("爬取过程在第{}页中断，可能因为设置爬取页数超过搜索结果页数".format(curpage))
+                break
+
+        # 循环结束，退出浏览器
+        driver.quit()
+
+        # 返回三个列表的列表
+        return [titlelst, urllst, abstractlst]
+
+
+    dt = crawlMain(keyword, int(maxpage))
+
+    df = pd.DataFrame()
+
+    df['Title'] = dt[0]
+    df['url link'] = dt[1]
+    df['Abstract'] = dt[2]
+
+    df_1 = df.drop_duplicates(subset='Title')
+
+    # 获取当前时间，用于生成保存文件名
+    curtime = datetime.datetime.now()
+    curtime = curtime.strftime("%Y%m%d%H%M%S")
+
+    # 生成文件名
+    savename = "MZJ_{}_{}.csv".format(keyword, curtime)
+    # df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
+
+    # 唤出保存窗口
+    root = tk.Tk()
+    root.withdraw()
+    folder_path = askdirectory()
+
+    # 生成保存路径
+    savepath = folder_path + "/" + savename
+    try:
+        df_1.to_csv(savepath, encoding="utf-8-sig")
+        print(savename, ".csv 文件被储存于", folder_path)
+    except:
+        print("保存文件时出错！")
+
+
+# ### 哲社办
+
+
+
+def ZheSheBan(keyword, maxpage):
+    
+    """
+        爬取全国哲学社会科学工作办公室（哲社办）的主函数
+        在用户输入关键词如”社会治理“后
+        返回三个列表，分别按顺序包含标题、链接和概览
+        存储在一个csv文件当中
+    """
+    
+    def crawlMain(keyword, maxpage):
+
+        # 初始化驱动
+        driver = webdriver.Chrome()
+
+        # 初始化存储列表
+        titlelst = []
+        urllst = []
+        abstractlst = []
+
+        # 进行搜索
+        fetchurl = "http://www.nopss.gov.cn" 
+        driver.get(fetchurl)
+        wait = WebDriverWait(driver, 10)  # 至多等待10s
+        search_box = wait.until(EC.visibility_of_element_located((By.ID, 'keyword')))
+        search_box.send_keys(keyword)
+        time.sleep(3)
+        search_box.send_keys(Keys.ENTER)
+
+        # 这个网站搜索后需要切换到新的标签页才能进入搜索结果页
+        current_window_handle = driver.current_window_handle
+        window_handles = driver.window_handles
+        for handle in window_handles:
+            if handle != current_window_handle:
+                driver.switch_to.window(handle)
+                break
+
+        # 初始化当前页码
+        curpage = 1
+
+        # 循环爬取每一页
+        while curpage <= maxpage:
+
+            # 设置等待翻页区出现
+            # 点击“下一页”后页面元素没有这么快刷新，会导致爬到的数据仍然是第1页的，因此加入了强制等待策略
+            
+            try:
+                time.sleep(1) 
+                wait = WebDriverWait(driver, 10)  # 至多等待10s
+                temp = wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'page_n'))) 
+            except:
+                print("爬取过程在第{}页中断，可能为该网站特有的翻页功能bug".format(curpage))
+                break
+
+
+            # 读取页面源代码
+            text = driver.page_source
+
+            # 解析页面源代码
+            soup = bs4.BeautifulSoup(text, 'html.parser') 
+
+            # 寻找到所有新闻条目
+            content_zone = soup.find('div', class_='page2_list')
+            contents = content_zone.find_all('li')
+
+            # 遍历每个条目，读取其中的标题、url和概览
+            for content in contents:
+
+                # 寻找标题
+                ttl = content.find('h2')
+                ttla = content.find('a')
+                title = ttla.text
+                titlelst.append(title)
+
+                # 寻找url
+                urla = ttla.get('href')
+                urllst.append(urla)
+
+                # 寻找摘要
+                # 万一没有摘要，设置了错误捕获
+                try: 
+                    abstract = content.find('p')
+                    abstracta = abstract.text
+                    abstractlst.append(abstracta)
+                except:
+                    abstractlst.append("【此条没有摘要！】")
+
+            # 当前页爬取结束
+            print("第{}页爬取成功！".format(curpage))
+
+            # 寻找下一页按钮
+            try:
+                page_zone = driver.find_element(By.CLASS_NAME, 'page_n')
+                time.sleep(1)
+                page_buttons = page_zone.find_elements(By.TAG_NAME, 'a')
+                next_button = page_buttons[-1]
+                next_url = next_button.get_attribute('href')
+                curpage = curpage + 1
+                driver.get(next_url) # 直接用next_button.click()会失败，原因不明
+            except:
+                print("爬取过程在第{}页中断，可能因为设置爬取页数超过搜索结果页数".format(curpage))
+                break
+
+        # 循环结束，退出浏览器
+        driver.quit()
+
+        # 返回三个列表的列表
+        return [titlelst, urllst, abstractlst]
+
+
+    dt = crawlMain(keyword, int(maxpage))
+
+    df = pd.DataFrame()
+
+    df['Title'] = dt[0]
+    df['url link'] = dt[1]
+    df['Abstract'] = dt[2]
+
+    df_1 = df.drop_duplicates(subset='Title')
+
+    # 获取当前时间，用于生成保存文件名
+    curtime = datetime.datetime.now()
+    curtime = curtime.strftime("%Y%m%d%H%M%S")
+
+    # 生成文件名
+    savename = "ZSBGS_{}_{}.csv".format(keyword, curtime)
+    # df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
+
+    # 唤出保存窗口
+    root = tk.Tk()
+    root.withdraw()
+    folder_path = askdirectory()
+
+    # 生成保存路径
+    savepath = folder_path + "/" + savename
+    try:
+        df_1.to_csv(savepath, encoding="utf-8-sig")
+        print(savename, ".csv 文件被储存于", folder_path)
+    except:
+        print("保存文件时出错！")
+
+
+# ### 卫健委
+
+
+
+def WeiJianWei(keyword, maxpage):
+    
+    """
+        爬取卫健委的主函数
+        在用户输入关键词如”社会治理“后
+        返回三个列表，分别按顺序包含标题、链接和概览
+        存储在一个csv文件当中
+    """
+    
+    def crawlMain(keyword, maxpage):
+
+        # 初始化驱动
+        driver = webdriver.Chrome()
+
+        # 初始化存储列表
+        titlelst = []
+        urllst = []
+        abstractlst = []
+
+        # 进行搜索
+        fetchurl = "http://zs.kaipuyun.cn/index/bm24000006" 
+        driver.get(fetchurl)
+        wait = WebDriverWait(driver, 10)  # 至多等待10s
+        search_box = wait.until(EC.visibility_of_element_located((By.XPATH, '//*[@id="allSearchWord"]')))
+        search_box.send_keys(keyword)
+        search_box.send_keys(Keys.ENTER)
+
+        # 初始化当前页码
+        curpage = 1
+
+        # 循环爬取每一页
+        while curpage <= maxpage:
+
+            # 设置等待最后一个新闻的摘要出现
+            # 点击“下一页”后页面元素没有这么快刷新，会导致爬到的数据仍然是第1页的，因此加入了强制等待策略
+            time.sleep(2) 
+            wait = WebDriverWait(driver, 10)  # 至多等待10s
+            wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'summaryFont')))    
+
+            # 读取页面源代码
+            text = driver.page_source
+
+            # 解析页面源代码
+            soup = bs4.BeautifulSoup(text, 'html.parser') 
+
+            # 寻找到所有新闻条目
+            contents = soup.find_all('div', class_='wordGuide Residence-permit')
+
+            # 遍历每个条目，读取其中的标题、url和概览
+            for content in contents:
+
+                # 寻找标题
+                ttla = content.find('a', class_='titleFont')
+                title = ttla.text
+                titlelst.append(title)
+
+                # 寻找url
+                urla = ttla.get('href')
+                urllst.append(urla)
+
+                # 寻找摘要
+                # 如果搜到一些首页专题推荐，会不存在摘要，所以设置了错误捕获
+                try: 
+                    abstract = content.find('p', class_='summaryFont')
+                    abstracta = abstract.text
+                    abstractlst.append(abstracta)
+                except:
+                    abstractlst.append("【此条没有摘要！】")
+
+            # 当前页爬取结束
+            print("第{}页爬取成功！".format(curpage))
+
+            # 寻找下一页按钮
+            try:
+                wait = WebDriverWait(driver, 10)  # 至多等待10s
+                next_page_button = wait.until(EC.visibility_of_element_located((By.XPATH, '(//*/ul[@id="pageInfo"]/li)[@jp-role="next"]/a')))
+                curpage = curpage + 1
+                next_page_button.click()
+            except:
+                print("爬取过程在第{}页中断，可能因为设置爬取页数超过搜索结果页数".format(curpage))
+                break
+
+        # 循环结束，退出浏览器
+        driver.quit()
+
+        # 返回三个列表的列表
+        return [titlelst, urllst, abstractlst]
+
+    dt = crawlMain(keyword, int(maxpage))
+
+    df = pd.DataFrame()
+
+    df['Title'] = dt[0]
+    df['url link'] = dt[1]
+    df['Abstract'] = dt[2]
+
+    df_1 = df.drop_duplicates(subset='Title')
+
+    # 获取当前时间，用于生成保存文件名
+    curtime = datetime.datetime.now()
+    curtime = curtime.strftime("%Y%m%d%H%M%S")
+
+    # 生成文件名
+    savename = "WJW_{}_{}.csv".format(keyword, curtime)
+    # df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
+
+    # 唤出保存窗口
+    root = tk.Tk()
+    root.withdraw()
+    folder_path = askdirectory()
+
+    # 生成保存路径
+    savepath = folder_path + "/" + savename
+    try:
+        df_1.to_csv(savepath, encoding="utf-8-sig")
+        print(savename, ".csv 文件被储存于", folder_path)
+    except:
+        print("保存文件时出错！")
+
+
+# ### 社科网
+
+
+def SheHuiKeXueWang(keyword, maxpage):
+    
+    """
+        爬取中国社会科学网的主函数
+        在用户输入关键词如”社会治理“后
+        返回三个列表，分别按顺序包含标题、链接和概览
+        存储在一个csv文件当中
+    """
+    
+    def crawlMain(keyword, maxpage):
+
+        # 初始化驱动
+        driver = webdriver.Chrome()
+
+        # 初始化存储列表
+        titlelst = []
+        urllst = []
+        abstractlst = []
+
+        # 进行搜索
+        fetchurl = "https://www.cssn.cn/so/s?qt={}".format(keyword)
+        driver.get(fetchurl)
+        wait = WebDriverWait(driver, 10)  # 至多等待10s
+        butt = wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'next')))
+        # search_box.send_keys(keyword)
+        # search_box.send_keys(Keys.ENTER)
+
+        # 初始化当前页码
+        curpage = 1
+
+        # 循环爬取每一页
+        while curpage <= maxpage:
+
+            # 设置等待最后一个新闻的摘要出现
+            # 点击“下一页”后页面元素没有这么快刷新，会导致爬到的数据仍然是第1页的，因此加入了强制等待策略
+            time.sleep(1) 
+            wait = WebDriverWait(driver, 10)  # 至多等待10s
+            wait.until(EC.visibility_of_element_located((By.ID, 'search_result')))    
+
+            # 读取页面源代码
+            text = driver.page_source
+
+            # 解析页面源代码
+            soup = bs4.BeautifulSoup(text, 'html.parser') 
+
+    # =============================================
+
+            # 首先寻找到所有带图片的新闻条目
+            contents = soup.find_all('div', class_='search-result-img')
+
+            # 遍历每个条目，读取其中的标题、url和概览
+            for content in contents:
+
+                # 寻找标题
+                ttl = content.find('div', class_ = 'result-title')
+                ttla = ttl.find('a')
+                title = ttla.text
+                titlelst.append(title)
+
+                # 寻找url
+                urla = ttla.get('href')
+                urllst.append(urla)
+
+                # 寻找摘要
+                # 如果搜到一些首页专题推荐，会不存在摘要，所以设置了错误捕获
+                try: 
+                    abstract = content.find('div', class_='search-result-text')
+                    abstracta = abstract.text
+                    abstractlst.append(abstracta)
+                except:
+                    abstractlst.append("【此条没有摘要！】")
+
+    # =============================================
+
+            # 接着寻找到所有不带图片的新闻条目
+            contents = soup.find_all('div', class_='search-result-div')
+
+            # 遍历每个条目，读取其中的标题、url和概览
+            for content in contents:
+
+                # 寻找标题
+                ttl = content.find('div', class_ = 'result-title')
+                ttla = ttl.find('a')
+                title = ttla.text
+                titlelst.append(title)
+
+                # 寻找url
+                urla = ttla.get('href')
+                urllst.append(urla)
+
+                # 寻找摘要
+                # 如果搜到一些首页专题推荐，会不存在摘要，所以设置了错误捕获
+                try: 
+                    abstract = content.find('div', class_='search-result-text')
+                    abstracta = abstract.text
+                    abstractlst.append(abstracta)
+                except:
+                    abstractlst.append("【此条没有摘要！】")
+
+    # =============================================
+
+            # 当前页爬取结束
+            print("第{}页爬取成功！".format(curpage))
+
+            # 寻找下一页按钮
+            try:
+                wait = WebDriverWait(driver, 10)  # 至多等待10s
+                next_page_zone = wait.until(EC.visibility_of_element_located((By.CLASS_NAME, 'middle-con-left-bottom')))
+                next_page_button = next_page_zone.find_element(By.CLASS_NAME, 'next')
+                curpage = curpage + 1
+                next_page_button.click()
+            except:
+                print("爬取过程在第{}页中断，可能因为设置爬取页数超过搜索结果页数".format(curpage))
+                break
+
+        # 循环结束，退出浏览器
+        driver.quit()
+
+        # 返回三个列表的列表
+        return [titlelst, urllst, abstractlst]
+
+
+    dt = crawlMain(keyword, int(maxpage))
+
+    df = pd.DataFrame()
+
+    df['Title'] = dt[0]
+    df['url link'] = dt[1]
+    df['Abstract'] = dt[2]
+
+    df_1 = df.drop_duplicates(subset='Title')
+
+    # 获取当前时间，用于生成保存文件名
+    curtime = datetime.datetime.now()
+    curtime = curtime.strftime("%Y%m%d%H%M%S")
+
+    # 生成文件名
+    savename = "SHKXW_{}_{}.csv".format(keyword, curtime)
+    # df_1.to_csv("/Users/ollie/Desktop/{}.csv".format(savename))
+
+    # 唤出保存窗口
+    root = tk.Tk()
+    root.withdraw()
+    folder_path = askdirectory()
+
+    # 生成保存路径
+    savepath = folder_path + "/" + savename
+    try:
+        df_1.to_csv(savepath, encoding="utf-8-sig")
+        print(savename, ".csv 文件被储存于", folder_path)
+    except:
+        print("保存文件时出错！")
+
+
+# ## 一堆爬虫函数结束
+
+def run_crawler():
+    
+    # 检查目标网站
+    target = combobox.get()
+    if  target not in weblst:
+        text_output.insert(tk.END, '请选择正确的目标网站！' + '\n')
+        text_output.see(tk.END) 
+        return False
+    
+    # 获取用户输入的关键词和迭代次数
+    keyword = entry_keyword.get()
+    maxpage = entry_iterations.get()
+
+    # 根据用户指定目标网站选择执行的函数，函数名为 webdic[target]
+    
+    try:
+        crawl_function = globals().get(webdic[target])
+        crawl_function(keyword, maxpage)
+    except subprocess.CalledProcessError as e:
+        messagebox.showerror('错误', '无法运行爬虫程序')
+        text_output.insert(tk.END, e.stderr.strip() + '\n')
+        text_output.see(tk.END) 
+    
+
+def close():
+    sys.exit()
+
+# 创建主窗口
+window = tk.Tk()
+window.title("爬虫程序")
+window.geometry("350x350")
+
+# 创建关键词输入框
+label_keyword = tk.Label(window, text="搜索词：")
+label_keyword.pack()
+entry_keyword = tk.Entry(window)
+entry_keyword.pack()
+
+# 创建迭代次数输入框
+label_iterations = tk.Label(window, text="爬取页数：")
+label_iterations.pack()
+entry_iterations = tk.Entry(window)
+entry_iterations.pack()
+
+# 创建下拉选项组件
+label = ttk.Label(window, text="选择目标网站")
+label.pack(pady=5)
+combobox = ttk.Combobox(window, value=weblst, text="选择目标网站")
+combobox.pack()
+
+# 创建运行按钮
+btn_run = tk.Button(window, text="运行爬虫", command=run_crawler)
+btn_run.pack(pady=20)
+
+# 创建运行按钮
+btn_run = tk.Button(window, text="关闭", command=close)
+btn_run.pack(pady=20)
+
+
+# 创建输出文本框
+text_output = tk.Text(window, height=50)
+initial_text = "请按需求选择搜索关键词、页数和目标网站。弹出报错窗口的话可能是因为超时，如有此情况请重复尝试，并保持网络状态良好。若有无法解决的问题可联系邮箱: 935023227@qq.com"
+text_output.insert(tk.END, initial_text)
+text_output.pack()
+
+# 运行主循环
+window.mainloop()
