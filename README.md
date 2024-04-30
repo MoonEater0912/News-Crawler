@@ -5,6 +5,8 @@
 - 爬取结果中标题重复的条目会被去重
 - 目前已经实现的网站可以在main.py的字典中看到
 
+*已经更新Windows版，chrome_main.py文件，下载后直接运行即可，需要安装对应版本的chrome驱动*
+
 #### 效果图
 
 <img width="337" alt="截屏2024-03-26 16 38 48" src="https://github.com/MoonEater0912/News-Crawler/assets/159446897/f84ff8c4-e14e-438d-8cb7-b33f072cca88">
